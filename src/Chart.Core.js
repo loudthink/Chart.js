@@ -40,10 +40,6 @@
 		var width = this.width = computeDimension(context.canvas,'Width') || context.canvas.width;
 		var height = this.height = computeDimension(context.canvas,'Height') || context.canvas.height;
 
-		// Firefox requires this to work correctly
-		context.canvas.width  = width;
-		context.canvas.height = height;
-
 		width = this.width = context.canvas.width;
 		height = this.height = context.canvas.height;
 		this.aspectRatio = this.width / this.height;
@@ -176,6 +172,12 @@
 
 			// String - Colour behind the legend colour block
 			multiTooltipKeyBackground: '#fff',
+
+			// Array - A list of colors to use as the defaults
+			segmentColorDefault: ["#A6CEE3", "#1F78B4", "#B2DF8A", "#33A02C", "#FB9A99", "#E31A1C", "#FDBF6F", "#FF7F00", "#CAB2D6", "#6A3D9A", "#B4B482", "#B15928" ],
+
+			// Array - A list of highlight colors to use as the defaults
+			segmentHighlightColorDefaults: [ "#CEF6FF", "#47A0DC", "#DAFFB2", "#5BC854", "#FFC2C1", "#FF4244", "#FFE797", "#FFA728", "#F2DAFE", "#9265C2", "#DCDCAA", "#D98150" ],
 
 			// Function - Will fire on animation progression.
 			onAnimationProgress: function(){},
@@ -407,8 +409,13 @@
 				maxSteps = Math.floor(drawingSize/(textSize * 1.5)),
 				skipFitting = (minSteps >= maxSteps);
 
-			var maxValue = max(valuesArray),
-				minValue = min(valuesArray);
+			// Filter out null values since these would min() to zero
+			var values = [];
+			each(valuesArray, function( v ){
+				v == null || values.push( v );
+			});
+			var minValue = min(values),
+			    maxValue = max(values);
 
 			// We need some degree of separation here to calculate the scales if all the values are the same
 			// Adding/minusing 0.5 will give us a range of 1.
@@ -1284,9 +1291,18 @@
 				y: chartY
 			});
 
+			// Normalize all angles to 0 - 2*PI (0 - 360°)
+			var pointRelativeAngle = pointRelativePosition.angle % (Math.PI * 2),
+			    startAngle = (Math.PI * 2 + this.startAngle) % (Math.PI * 2),
+			    endAngle = (Math.PI * 2 + this.endAngle) % (Math.PI * 2) || 360;
+
+			// Calculate wether the pointRelativeAngle is between the start and the end angle
+			var betweenAngles = (endAngle < startAngle) ?
+				pointRelativeAngle <= endAngle || pointRelativeAngle >= startAngle:
+				pointRelativeAngle >= startAngle && pointRelativeAngle <= endAngle;
+
 			//Check if within the range of the open/close angle
-			var betweenAngles = (pointRelativePosition.angle >= this.startAngle && pointRelativePosition.angle <= this.endAngle),
-				withinRadius = (pointRelativePosition.distance >= this.innerRadius && pointRelativePosition.distance <= this.outerRadius);
+			var withinRadius = (pointRelativePosition.distance >= this.innerRadius && pointRelativePosition.distance <= this.outerRadius);
 
 			return (betweenAngles && withinRadius);
 			//Ensure within the outside of the arc centre, but inside arc outer
@@ -1467,7 +1483,8 @@
 
 			this.titleFont = fontString(this.titleFontSize,this.titleFontStyle,this.titleFontFamily);
 
-			this.height = (this.labels.length * this.fontSize) + ((this.labels.length-1) * (this.fontSize/2)) + (this.yPadding*2) + this.titleFontSize *1.5;
+			this.titleHeight = this.title ? this.titleFontSize * 1.5 : 0;
+			this.height = (this.labels.length * this.fontSize) + ((this.labels.length-1) * (this.fontSize/2)) + (this.yPadding*2) + this.titleHeight;
 
 			this.ctx.font = this.titleFont;
 
@@ -1503,9 +1520,9 @@
 
 			//If the index is zero, we're getting the title
 			if (index === 0){
-				return baseLineHeight + this.titleFontSize/2;
+				return baseLineHeight + this.titleHeight / 3;
 			} else{
-				return baseLineHeight + ((this.fontSize*1.5*afterTitleIndex) + this.fontSize/2) + this.titleFontSize * 1.5;
+				return baseLineHeight + ((this.fontSize * 1.5 * afterTitleIndex) + this.fontSize / 2) + this.titleHeight;
 			}
 
 		},
